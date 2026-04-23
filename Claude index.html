@@ -1972,6 +1972,1576 @@ class ErrorBoundary extends React.Component {
 // ========== 啟動 ==========
 const root = ReactDOM.createRoot(document.getElementById('root'));
 root.render(<ErrorBoundary><App /></ErrorBoundary>);
+<!DOCTYPE html>
+<html lang="zh-HK">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Travel">
+<meta name="theme-color" content="#000000">
+<link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 180 180'%3E%3Crect width='180' height='180' rx='40' fill='%23000'/%3E%3Ctext x='90' y='120' font-size='90' text-anchor='middle' fill='%23FF8C00'%3E✈️%3C/text%3E%3C/svg%3E">
+<title>Travel Tracker</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" crossorigin></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" crossorigin></script>
+<script src="https://unpkg.com/@babel/standalone@7.24.7/babel.min.js"></script>
+<style>
+  html, body { background: #000; margin: 0; padding: 0; overscroll-behavior: none; -webkit-tap-highlight-color: transparent; }
+  body { font-family: -apple-system, "PingFang HK", "Noto Sans TC", "Microsoft JhengHei", sans-serif; }
+  * { -webkit-user-select: none; user-select: none; }
+  input, textarea { -webkit-user-select: text; user-select: text; }
+  input[type="date"]::-webkit-calendar-picker-indicator,
+  input[type="datetime-local"]::-webkit-calendar-picker-indicator { filter: invert(1); }
+  ::-webkit-scrollbar { display: none; }
+  .safe-top { padding-top: max(env(safe-area-inset-top), 60px); }
+  .safe-bottom { padding-bottom: max(env(safe-area-inset-bottom), 20px); }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .anim-spin { animation: spin 1s linear infinite; }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+  .anim-fade { animation: fadeIn 0.25s ease-out; }
+  @keyframes slideUp { from { opacity: 0; transform: translateY(100%); } to { opacity: 1; transform: translateY(0); } }
+  .anim-slide-up { animation: slideUp 0.3s ease-out; }
+</style>
+</head>
+<body class="bg-black">
+<div id="root"></div>
+<div id="err-panel" style="display:none; position:fixed; inset:0; background:#000; color:#fff; font-family:monospace; font-size:11px; padding:12px; padding-top:60px; padding-bottom:40px; overflow-y:auto; white-space:pre-wrap; word-break:break-word; z-index:99999;"></div>
+<script>
+(function(){
+  function rootEmpty(){
+    var root = document.getElementById('root');
+    return root && root.childElementCount === 0;
+  }
+  function showErr(msg){
+    if(!rootEmpty()) return;
+    var el = document.getElementById('err-panel');
+    if(!el) return;
+    el.style.display = 'block';
+    el.textContent = (el.textContent ? el.textContent + '\n\n---\n\n' : '') + msg;
+  }
+  window.addEventListener('error', function(e){
+    showErr('[ERROR] ' + (e.message || e.error) + '\n' + (e.filename||'') + ':' + (e.lineno||'') + ':' + (e.colno||'') + '\n' + ((e.error && e.error.stack) || ''));
+  });
+  window.addEventListener('unhandledrejection', function(e){
+    var msg = (e.reason && (e.reason.message || e.reason)) + '';
+    if (msg.indexOf('persistence') !== -1 || msg.indexOf('exclusive access') !== -1) return;
+    showErr('[PROMISE REJECTED] ' + msg + '\n' + ((e.reason && e.reason.stack) || ''));
+  });
+  setTimeout(function(){
+    if(rootEmpty()){
+      showErr('[HINT] React 冇 mount 到。可能原因：\n1. CDN block（Tailwind / React / Babel）\n2. Babel 轉換失敗\n3. JSX runtime error');
+    }
+  }, 5000);
+})();
+</script>
+
+<script type="module">
+  import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
+  import { getFirestore, doc, getDoc, setDoc, updateDoc, deleteDoc, collection, onSnapshot, enableMultiTabIndexedDbPersistence } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
+
+  const firebaseConfig = {
+    apiKey: "AIzaSyCBROXAaKZIXwteh-QJbpmSsLfa273kOLw",
+    authDomain: "travel-tracker-38613.firebaseapp.com",
+    projectId: "travel-tracker-38613",
+    storageBucket: "travel-tracker-38613.firebasestorage.app",
+    messagingSenderId: "1076074490049",
+    appId: "1:1076074490049:web:ca51167a60db23011a0c40"
+  };
+
+  const fbApp = initializeApp(firebaseConfig);
+  const db = getFirestore(fbApp);
+  enableMultiTabIndexedDbPersistence(db).catch(err => {
+    console.warn('persistence disabled:', err && err.code);
+  });
+
+  window.__firebase = { db, doc, getDoc, setDoc, updateDoc, deleteDoc, collection, onSnapshot };
+  window.dispatchEvent(new Event('firebase-ready'));
+</script>
+
+<script type="text/babel" data-type="module">
+const { useState, useEffect, useRef, useMemo, useCallback } = React;
+// ========== Icons ==========
+const Icon = ({ d, className = 'w-5 h-5', stroke = 2 }) => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={stroke} strokeLinecap="round" strokeLinejoin="round" className={className}>
+    {typeof d === 'string' ? <path d={d} /> : d}
+  </svg>
+);
+const IconHome = (p) => <Icon {...p} d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z M9 22V12h6v10" />;
+const IconList = (p) => <Icon {...p} d={<><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/></>} />;
+const IconCamera = (p) => <Icon {...p} d={<><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"/><circle cx="12" cy="13" r="3"/></>} />;
+const IconChart = (p) => <Icon {...p} d={<><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></>} />;
+const IconSettings = (p) => <Icon {...p} d={<><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></>} />;
+const IconPlus = (p) => <Icon {...p} d={<><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></>} />;
+const IconTrash = (p) => <Icon {...p} d={<><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></>} />;
+const IconPencil = (p) => <Icon {...p} d={<><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></>} />;
+const IconX = (p) => <Icon {...p} d={<><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></>} />;
+const IconUpload = (p) => <Icon {...p} d={<><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></>} />;
+const IconRefresh = (p) => <Icon {...p} d={<><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></>} />;
+const IconCheck = (p) => <Icon {...p} d="M20 6L9 17l-5-5" />;
+const IconChevron = (p) => <Icon {...p} d="M9 18l6-6-6-6" />;
+const IconTrend = (p) => <Icon {...p} d={<><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></>} />;
+const IconWallet = (p) => <Icon {...p} d={<><path d="M20 12V8H6a2 2 0 0 1-2-2c0-1.1.9-2 2-2h12v4"/><path d="M4 6v12c0 1.1.9 2 2 2h14v-4"/><path d="M18 12a2 2 0 0 0-2 2c0 1.1.9 2 2 2h4v-4h-4z"/></>} />;
+const IconDollar = (p) => <Icon {...p} d={<><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></>} />;
+const IconUsers = (p) => <Icon {...p} d={<><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></>} />;
+const IconWifi = (p) => <Icon {...p} d={<><path d="M5 12.55a11 11 0 0 1 14.08 0"/><path d="M1.42 9a16 16 0 0 1 21.16 0"/><path d="M8.53 16.11a6 6 0 0 1 6.95 0"/><line x1="12" y1="20" x2="12.01" y2="20"/></>} />;
+const IconWifiOff = (p) => <Icon {...p} d={<><line x1="1" y1="1" x2="23" y2="23"/><path d="M16.72 11.06A10.94 10.94 0 0 1 19 12.55"/><path d="M5 12.55a10.94 10.94 0 0 1 5.17-2.39"/><path d="M10.71 5.05A16 16 0 0 1 22.58 9"/><path d="M1.42 9a15.91 15.91 0 0 1 4.7-2.88"/><path d="M8.53 16.11a6 6 0 0 1 6.95 0"/><line x1="12" y1="20" x2="12.01" y2="20"/></>} />;
+const IconLoader = (p) => <Icon {...p} d={<><line x1="12" y1="2" x2="12" y2="6"/><line x1="12" y1="18" x2="12" y2="22"/><line x1="4.93" y1="4.93" x2="7.76" y2="7.76"/><line x1="16.24" y1="16.24" x2="19.07" y2="19.07"/><line x1="2" y1="12" x2="6" y2="12"/><line x1="18" y1="12" x2="22" y2="12"/><line x1="4.93" y1="19.07" x2="7.76" y2="16.24"/><line x1="16.24" y1="7.76" x2="19.07" y2="4.93"/></>} />;
+const IconUndo = (p) => <Icon {...p} d={<><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></>} />;
+const IconShare = (p) => <Icon {...p} d={<><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></>} />;
+const IconNote = (p) => <Icon {...p} d={<><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></>} />;
+// ========== Constants ==========
+const CATEGORIES = [
+  { id: 'food', name: '餐飲', color: '#FF8C00', emoji: '🍜' },
+  { id: 'transport', name: '交通', color: '#F59E0B', emoji: '🚅' },
+  { id: 'shopping', name: '購物', color: '#EF4444', emoji: '🛍️' },
+  { id: 'accommodation', name: '住宿', color: '#8B5CF6', emoji: '🏨' },
+  { id: 'ticket', name: '門票', color: '#06B6D4', emoji: '🎫' },
+  { id: 'medicine', name: '藥品', color: '#EC4899', emoji: '💊' },
+  { id: 'entertainment', name: '娛樂', color: '#F472B6', emoji: '🎮' },
+  { id: 'other', name: '其他', color: '#6B7280', emoji: '📦' },
+];
+
+const CURRENCIES = [
+  { code: 'JPY', symbol: '¥', name: '日圓', flag: '🇯🇵' },
+  { code: 'HKD', symbol: 'HK$', name: '港幣', flag: '🇭🇰' },
+  { code: 'TWD', symbol: 'NT$', name: '台幣', flag: '🇹🇼' },
+  { code: 'USD', symbol: 'US$', name: '美元', flag: '🇺🇸' },
+  { code: 'EUR', symbol: '€', name: '歐元', flag: '🇪🇺' },
+  { code: 'GBP', symbol: '£', name: '英鎊', flag: '🇬🇧' },
+  { code: 'KRW', symbol: '₩', name: '韓元', flag: '🇰🇷' },
+  { code: 'CNY', symbol: '¥', name: '人民幣', flag: '🇨🇳' },
+  { code: 'THB', symbol: '฿', name: '泰銖', flag: '🇹🇭' },
+  { code: 'SGD', symbol: 'S$', name: '新幣', flag: '🇸🇬' },
+  { code: 'AUD', symbol: 'A$', name: '澳元', flag: '🇦🇺' },
+  { code: 'CAD', symbol: 'C$', name: '加元', flag: '🇨🇦' },
+  { code: 'VND', symbol: '₫', name: '越南盾', flag: '🇻🇳' },
+  { code: 'PHP', symbol: '₱', name: '菲律賓比索', flag: '🇵🇭' },
+  { code: 'IDR', symbol: 'Rp', name: '印尼盾', flag: '🇮🇩' },
+  { code: 'MYR', symbol: 'RM', name: '馬幣', flag: '🇲🇾' },
+];
+
+const PAYMENT_METHODS = [
+  { id: 'cash', name: '現金' },
+  { id: 'credit', name: '信用卡' },
+  { id: 'mobile', name: '行動支付' },
+  { id: 'other', name: '其他' },
+];
+
+const TRANSACTION_TYPES = [
+  { id: 'shared', name: '共同分帳', desc: '大家一齊分', emoji: '👥' },
+  { id: 'personal', name: '個人消費', desc: '唔影響欠款', emoji: '👤' },
+];
+
+const SPLIT_METHODS = [
+  { id: 'even', name: '平均分' },
+  { id: 'manual', name: '手動輸入' },
+];
+
+const DEFAULT_SETTINGS = {
+  tripName: '日本之旅',
+  startDate: new Date().toISOString().split('T')[0],
+  totalDays: 7,
+  fromCurrency: 'JPY',
+  toCurrency: 'HKD',
+};
+
+const PRESET_COLORS = ['#FF8C00','#EF4444','#F472B6','#8B5CF6','#3B82F6','#06B6D4','#10B981','#F59E0B'];
+
+const ROLES = {
+  admin:  { id: 'admin',  name: 'Admin',  desc: '所有權限（管理旅伴、封存、刪除）' },
+  editor: { id: 'editor', name: 'Editor', desc: '可新增 / 修改 / 刪除消費' },
+  viewer: { id: 'viewer', name: 'Viewer', desc: '只可查看' },
+};
+const ROLE_ORDER = ['admin', 'editor', 'viewer'];
+
+// ========== Color helpers ==========
+function hexToRgb(hex) {
+  const h = hex.replace('#', '');
+  if (h.length !== 6) return { r: 255, g: 140, b: 0 };
+  return { r: parseInt(h.slice(0,2),16), g: parseInt(h.slice(2,4),16), b: parseInt(h.slice(4,6),16) };
+}
+function rgbToHex(r, g, b) {
+  const clamp = (v) => Math.max(0, Math.min(255, Math.round(v)));
+  const to2 = (v) => clamp(v).toString(16).padStart(2, '0');
+  return '#' + to2(r) + to2(g) + to2(b);
+}
+function relLum({ r, g, b }) {
+  const ch = (v) => { v /= 255; return v <= 0.03928 ? v/12.92 : Math.pow((v+0.055)/1.055, 2.4); };
+  return 0.2126 * ch(r) + 0.7152 * ch(g) + 0.0722 * ch(b);
+}
+function ensureReadableColor(hex) {
+  if (!hex || typeof hex !== 'string') return '#FF8C00';
+  const rgb = hexToRgb(hex);
+  let lum = relLum(rgb);
+  if (lum >= 0.18) return hex;
+  let t = 0;
+  let { r, g, b } = rgb;
+  while (lum < 0.28 && t < 1) {
+    t += 0.08;
+    r = rgb.r + (255 - rgb.r) * t;
+    g = rgb.g + (255 - rgb.g) * t;
+    b = rgb.b + (255 - rgb.b) * t;
+    lum = relLum({ r, g, b });
+  }
+  return rgbToHex(r, g, b);
+}
+
+// ========== URL hash routing ==========
+function parseRoute() {
+  const hash = window.location.hash || '';
+  const m = hash.match(/^#\/trip\/([A-Za-z0-9_-]+)/);
+  if (m) return { kind: 'trip', tripId: m[1] };
+  return { kind: 'list' };
+}
+function setRoute(route) {
+  if (route.kind === 'list') window.location.hash = '#/';
+  else if (route.kind === 'trip') window.location.hash = '#/trip/' + route.tripId;
+}
+function genId() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 8); }
+function tripShareUrl(tripId) {
+  return window.location.origin + window.location.pathname + '#/trip/' + tripId;
+}
+async function shareTrip(tripId, tripName) {
+  const url = tripShareUrl(tripId);
+  const title = tripName || '旅程';
+  try {
+    if (navigator.share) {
+      await navigator.share({ title, text: '一齊記帳：' + title, url });
+      return { ok: true, method: 'share' };
+    }
+  } catch (e) {
+    if (e && e.name === 'AbortError') return { ok: false, method: 'cancelled' };
+  }
+  try {
+    await navigator.clipboard.writeText(url);
+    return { ok: true, method: 'clipboard' };
+  } catch (e) {
+    return { ok: false, method: 'fail', url };
+  }
+}
+
+// ========== Exchange Rate (3-fallback) ==========
+async function fetchExchangeRate(from, to) {
+  try {
+    const res = await fetch(`https://open.er-api.com/v6/latest/${from}`);
+    const data = await res.json();
+    if (data?.result === 'success' && data.rates?.[to]) {
+      return { rate: data.rates[to], timestamp: (data.time_last_update_unix || Math.floor(Date.now()/1000)) * 1000, source: 'er-api' };
+    }
+  } catch (e) {}
+  try {
+    const res = await fetch(`https://cdn.jsdelivr.net/npm/@fawazahmed0/currency-api@latest/v1/currencies/${from.toLowerCase()}.json`);
+    const data = await res.json();
+    const bucket = data?.[from.toLowerCase()];
+    if (bucket && bucket[to.toLowerCase()]) {
+      return { rate: bucket[to.toLowerCase()], timestamp: Date.now(), source: 'jsdelivr' };
+    }
+  } catch (e) {}
+  try {
+    const res = await fetch(`https://latest.currency-api.pages.dev/v1/currencies/${from.toLowerCase()}.json`);
+    const data = await res.json();
+    const bucket = data?.[from.toLowerCase()];
+    if (bucket && bucket[to.toLowerCase()]) {
+      return { rate: bucket[to.toLowerCase()], timestamp: Date.now(), source: 'cloudflare' };
+    }
+  } catch (e) {}
+  return null;
+}
+
+function getCurrencySymbol(code) { return CURRENCIES.find(c => c.code === code)?.symbol || code; }
+function formatMoney(amount, code, short = false) {
+  const sym = getCurrencySymbol(code);
+  if (short && Math.abs(amount) >= 10000) return sym + (amount / 1000).toFixed(1) + 'k';
+  return sym + Math.round(amount).toLocaleString();
+}
+function convert(amount, rate) { return (!rate || !rate.rate) ? 0 : amount * rate.rate; }
+// ========== Balance calculation (Round 2) ==========
+function calculateBalances(expenses, members) {
+  const balances = {};
+  members.forEach(m => balances[m.id] = 0);
+  expenses.forEach(exp => {
+    if (exp.deleted) return;
+    if (exp.transactionType === 'personal') return;
+    if (!exp.paidBy || !exp.splitAmong || exp.splitAmong.length === 0) return;
+    balances[exp.paidBy] = (balances[exp.paidBy] || 0) + exp.amount;
+    if (exp.splitMethod === 'manual' && exp.splitAmounts) {
+      exp.splitAmong.forEach(mid => {
+        const amt = exp.splitAmounts[mid] || 0;
+        balances[mid] = (balances[mid] || 0) - amt;
+      });
+    } else {
+      const perPerson = exp.amount / exp.splitAmong.length;
+      exp.splitAmong.forEach(mid => { balances[mid] = (balances[mid] || 0) - perPerson; });
+    }
+  });
+  return balances;
+}
+
+function simplifyTransfers(balances) {
+  const creditors = [], debtors = [];
+  Object.entries(balances).forEach(([id, bal]) => {
+    if (bal > 0.01) creditors.push({ id, amount: bal });
+    else if (bal < -0.01) debtors.push({ id, amount: -bal });
+  });
+  creditors.sort((a, b) => b.amount - a.amount);
+  debtors.sort((a, b) => b.amount - a.amount);
+  const transfers = [];
+  let ci = 0, di = 0;
+  while (ci < creditors.length && di < debtors.length) {
+    const amt = Math.min(creditors[ci].amount, debtors[di].amount);
+    if (amt > 0.01) transfers.push({ from: debtors[di].id, to: creditors[ci].id, amount: amt });
+    creditors[ci].amount -= amt;
+    debtors[di].amount -= amt;
+    if (creditors[ci].amount < 0.01) ci++;
+    if (debtors[di].amount < 0.01) di++;
+  }
+  return transfers;
+}
+
+// ========== Firestore helpers ==========
+function waitFirebase() {
+  return new Promise(resolve => {
+    if (window.__firebase) return resolve(window.__firebase);
+    window.addEventListener('firebase-ready', () => resolve(window.__firebase), { once: true });
+  });
+}
+
+function useFirebase(tripId) {
+  const [settings, setSettings] = useState(null);
+  const [expenses, setExpenses] = useState([]);
+  const [members, setMembers] = useState([]);
+  const [ready, setReady] = useState(false);
+  const [online, setOnline] = useState(navigator.onLine);
+  const fbRef = useRef(null);
+  const unsubs = useRef([]);
+
+  useEffect(() => {
+    const onOn = () => setOnline(true);
+    const onOff = () => setOnline(false);
+    window.addEventListener('online', onOn);
+    window.addEventListener('offline', onOff);
+    return () => { window.removeEventListener('online', onOn); window.removeEventListener('offline', onOff); };
+  }, []);
+
+  useEffect(() => {
+    if (!tripId) return;
+    let cancelled = false;
+    (async () => {
+      const fb = await waitFirebase();
+      if (cancelled) return;
+      fbRef.current = fb;
+      const { db, doc, getDoc, setDoc, collection, onSnapshot } = fb;
+      const tripDoc = doc(db, 'trips', tripId);
+      const snap = await getDoc(tripDoc);
+      if (!snap.exists()) {
+        await setDoc(tripDoc, { ...DEFAULT_SETTINGS, createdAt: Date.now() });
+      }
+      const u1 = onSnapshot(tripDoc, s => {
+        if (s.exists()) setSettings(s.data());
+      });
+      const u2 = onSnapshot(collection(db, 'trips', tripId, 'expenses'), s => {
+        const arr = [];
+        s.forEach(d => arr.push({ id: d.id, ...d.data() }));
+        arr.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+        setExpenses(arr);
+      });
+      const u3 = onSnapshot(collection(db, 'trips', tripId, 'members'), s => {
+        const arr = [];
+        s.forEach(d => arr.push({ id: d.id, ...d.data() }));
+        arr.sort((a, b) => (a.joinedAt || 0) - (b.joinedAt || 0));
+        setMembers(arr);
+      });
+      unsubs.current = [u1, u2, u3];
+      if (!cancelled) setReady(true);
+    })();
+    return () => { cancelled = true; unsubs.current.forEach(u => u()); unsubs.current = []; setReady(false); setSettings(null); setExpenses([]); setMembers([]); };
+  }, [tripId]);
+
+  const fb = () => fbRef.current;
+
+  const addExpense = async (exp) => {
+    const { db, doc, setDoc } = fb();
+    const id = genId();
+    await setDoc(doc(db, 'trips', tripId, 'expenses', id), { ...exp, id, createdAt: Date.now() });
+    return id;
+  };
+  const updateExpense = async (id, data) => {
+    const { db, doc, updateDoc } = fb();
+    await updateDoc(doc(db, 'trips', tripId, 'expenses', id), data);
+  };
+  const softDeleteExpense = async (id) => {
+    await updateExpense(id, { deleted: true, deletedAt: Date.now() });
+  };
+  const restoreExpense = async (id) => {
+    await updateExpense(id, { deleted: false, deletedAt: null });
+  };
+  const hardDeleteExpense = async (id) => {
+    const { db, doc, deleteDoc } = fb();
+    await deleteDoc(doc(db, 'trips', tripId, 'expenses', id));
+  };
+  const addMember = async (member) => {
+    const { db, doc, setDoc } = fb();
+    const id = member.id || genId();
+    const isFirst = members.length === 0;
+    await setDoc(doc(db, 'trips', tripId, 'members', id), { ...member, id, role: isFirst ? 'admin' : (member.role || 'editor'), joinedAt: Date.now() });
+    return id;
+  };
+  const updateMember = async (id, data) => {
+    const { db, doc, updateDoc } = fb();
+    await updateDoc(doc(db, 'trips', tripId, 'members', id), data);
+  };
+  const removeMember = async (id) => {
+    const { db, doc, deleteDoc } = fb();
+    await deleteDoc(doc(db, 'trips', tripId, 'members', id));
+  };
+  const writeTripMetaField = async (field, value) => {
+    const { db, doc, updateDoc } = fb();
+    await updateDoc(doc(db, 'trips', tripId), { [field]: value });
+  };
+
+  return { settings, expenses, members, ready, online, addExpense, updateExpense, softDeleteExpense, restoreExpense, hardDeleteExpense, addMember, updateMember, removeMember, writeTripMetaField };
+}
+// ========== Identity ==========
+function getStoredIdentity(tripId) {
+  try { return JSON.parse(localStorage.getItem('identity_' + tripId)); } catch { return null; }
+}
+function storeIdentity(tripId, identity) {
+  try { localStorage.setItem('identity_' + tripId, JSON.stringify(identity)); } catch {}
+}
+function clearIdentity(tripId) {
+  try { localStorage.removeItem('identity_' + tripId); } catch {}
+}
+
+// ========== Toast ==========
+function Toast({ message, onDone }) {
+  useEffect(() => { const t = setTimeout(onDone, 2200); return () => clearTimeout(t); }, []);
+  return (
+    <div className="fixed top-16 left-1/2 -translate-x-1/2 z-50 bg-zinc-800 text-white text-sm px-4 py-2 rounded-xl shadow-lg anim-fade">
+      {message}
+    </div>
+  );
+}
+
+// ========== Identity Gate ==========
+function IdentityGate({ tripId, members, addMember, children }) {
+  const [identity, setIdentity] = useState(() => getStoredIdentity(tripId));
+  const [newName, setNewName] = useState('');
+  const [picking, setPicking] = useState(false);
+
+  useEffect(() => {
+    if (identity && members.length > 0) {
+      const still = members.find(m => m.id === identity.id);
+      if (!still) { clearIdentity(tripId); setIdentity(null); }
+    }
+  }, [members, identity, tripId]);
+
+  if (identity) {
+    const me = members.find(m => m.id === identity.id);
+    return children({ identity: me || identity });
+  }
+
+  const handleJoinExisting = (m) => {
+    const id = { id: m.id, name: m.name };
+    storeIdentity(tripId, id);
+    setIdentity(id);
+  };
+
+  const handleJoinNew = async () => {
+    const name = newName.trim();
+    if (!name) return;
+    const id = await addMember({ name, color: PRESET_COLORS[members.length % PRESET_COLORS.length] });
+    const identity = { id, name };
+    storeIdentity(tripId, identity);
+    setIdentity(identity);
+  };
+
+  return (
+    <div className="min-h-screen bg-black text-white flex flex-col items-center justify-center p-6 safe-top">
+      <div className="text-4xl mb-3">✈️</div>
+      <h1 className="text-xl font-bold mb-6">你係邊位？</h1>
+      {members.length > 0 && (
+        <div className="w-full max-w-xs mb-6">
+          <p className="text-zinc-400 text-sm mb-2">揀返自己：</p>
+          <div className="space-y-2">
+            {members.map(m => (
+              <button key={m.id} onClick={() => handleJoinExisting(m)}
+                className="w-full flex items-center gap-3 p-3 rounded-xl bg-zinc-900 active:bg-zinc-800 transition-colors">
+                <div className="w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold"
+                  style={{ background: m.color || '#FF8C00' }}>{m.name?.[0]}</div>
+                <span className="font-medium">{m.name}</span>
+                <span className="ml-auto text-xs text-zinc-500">{ROLES[m.role]?.name || m.role}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+      <div className="w-full max-w-xs">
+        <p className="text-zinc-400 text-sm mb-2">{members.length > 0 ? '或者新加入：' : '輸入你個名：'}</p>
+        <div className="flex gap-2">
+          <input value={newName} onChange={e => setNewName(e.target.value)} placeholder="名字"
+            className="flex-1 bg-zinc-900 rounded-xl px-4 py-3 text-white outline-none focus:ring-1 focus:ring-orange-500"
+            onKeyDown={e => e.key === 'Enter' && handleJoinNew()} />
+          <button onClick={handleJoinNew}
+            className="bg-orange-600 text-white px-5 py-3 rounded-xl font-medium active:bg-orange-700">加入</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ========== Trip List ==========
+function TripListPage() {
+  const [trips, setTrips] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [showNew, setShowNew] = useState(false);
+  const [newName, setNewName] = useState('');
+  const [toast, setToast] = useState('');
+
+  useEffect(() => {
+    let unsub;
+    (async () => {
+      const fb = await waitFirebase();
+      const { db, collection, onSnapshot } = fb;
+      unsub = onSnapshot(collection(db, 'trips'), snap => {
+        const arr = [];
+        snap.forEach(d => arr.push({ id: d.id, ...d.data() }));
+        arr.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+        setTrips(arr);
+        setLoading(false);
+      });
+    })();
+    return () => unsub && unsub();
+  }, []);
+
+  const createTrip = async () => {
+    const name = newName.trim() || '新旅程';
+    const fb = await waitFirebase();
+    const { db, doc, setDoc } = fb;
+    const id = genId();
+    await setDoc(doc(db, 'trips', id), { ...DEFAULT_SETTINGS, tripName: name, createdAt: Date.now() });
+    setShowNew(false);
+    setNewName('');
+    setRoute({ kind: 'trip', tripId: id });
+  };
+
+  const handleShare = async (trip) => {
+    const res = await shareTrip(trip.id, trip.tripName);
+    if (res.ok) setToast(res.method === 'clipboard' ? '已複製連結' : '已分享');
+    else if (res.method === 'fail') setToast('複製失敗，URL: ' + res.url);
+  };
+
+  if (loading) return (
+    <div className="min-h-screen bg-black text-white flex items-center justify-center">
+      <div className="anim-spin"><IconLoader className="w-8 h-8 text-orange-500" /></div>
+    </div>
+  );
+
+  return (
+    <div className="min-h-screen bg-black text-white safe-top safe-bottom">
+      {toast && <Toast message={toast} onDone={() => setToast('')} />}
+      <div className="px-4 pt-2 pb-4">
+        <div className="flex items-center justify-between mb-6">
+          <h1 className="text-2xl font-bold">✈️ 我的旅程</h1>
+          <button onClick={() => setShowNew(true)} className="bg-orange-600 text-white p-2 rounded-full active:bg-orange-700">
+            <IconPlus className="w-5 h-5" />
+          </button>
+        </div>
+        {trips.length === 0 && (
+          <div className="text-center text-zinc-500 mt-20">
+            <p className="text-5xl mb-4">🌍</p>
+            <p>未有旅程</p>
+            <p className="text-sm mt-1">撳右上角 + 開始</p>
+          </div>
+        )}
+        <div className="space-y-3">
+          {trips.map(trip => (
+            <div key={trip.id} className="bg-zinc-900 rounded-2xl p-4 active:bg-zinc-800 transition-colors"
+              onClick={() => setRoute({ kind: 'trip', tripId: trip.id })}>
+              <div className="flex items-center justify-between">
+                <div>
+                  <h2 className="font-bold text-lg">{trip.tripName || '未命名'}</h2>
+                  <p className="text-zinc-400 text-sm mt-1">{trip.startDate || ''} · {trip.totalDays || '?'}日</p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <button onClick={e => { e.stopPropagation(); handleShare(trip); }}
+                    className="p-2 text-zinc-400 active:text-white"><IconShare className="w-4 h-4" /></button>
+                  <IconChevron className="w-5 h-5 text-zinc-600" />
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+      {showNew && (
+        <div className="fixed inset-0 bg-black/70 z-50 flex items-end justify-center" onClick={() => setShowNew(false)}>
+          <div className="bg-zinc-900 w-full max-w-lg rounded-t-3xl p-6 anim-slide-up" onClick={e => e.stopPropagation()}>
+            <h2 className="text-lg font-bold mb-4">新旅程</h2>
+            <input value={newName} onChange={e => setNewName(e.target.value)} placeholder="旅程名稱"
+              className="w-full bg-zinc-800 rounded-xl px-4 py-3 text-white outline-none focus:ring-1 focus:ring-orange-500 mb-4"
+              onKeyDown={e => e.key === 'Enter' && createTrip()} autoFocus />
+            <button onClick={createTrip} className="w-full bg-orange-600 text-white py-3 rounded-xl font-bold active:bg-orange-700">建立</button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+// ========== Tab Bar ==========
+function TabBar({ tab, setTab, accentColor }) {
+  const c = ensureReadableColor(accentColor);
+  const tabs = [
+    { id: 'home', icon: IconHome, label: '主頁' },
+    { id: 'list', icon: IconList, label: '明細' },
+    { id: 'camera', icon: IconCamera, label: '掃描' },
+    { id: 'chart', icon: IconChart, label: '統計' },
+    { id: 'settings', icon: IconSettings, label: '設定' },
+  ];
+  return (
+    <div className="fixed bottom-0 left-0 right-0 bg-black/90 backdrop-blur border-t border-zinc-800 safe-bottom z-40">
+      <div className="flex justify-around items-center h-14 max-w-lg mx-auto">
+        {tabs.map(t => {
+          const active = tab === t.id;
+          return (
+            <button key={t.id} onClick={() => setTab(t.id)}
+              className="flex flex-col items-center gap-0.5 px-3 py-1 transition-colors"
+              style={{ color: active ? c : '#71717a' }}>
+              <t.icon className="w-5 h-5" />
+              <span className="text-[10px]">{t.label}</span>
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+// ========== Home Tab ==========
+function HomeTab({ settings, expenses, members, rate, identity, accentColor }) {
+  const c = ensureReadableColor(accentColor);
+  const activeExpenses = expenses.filter(e => !e.deleted);
+  const total = activeExpenses.reduce((s, e) => s + (e.amount || 0), 0);
+  const sharedExpenses = activeExpenses.filter(e => e.transactionType !== 'personal');
+  const personalExpenses = activeExpenses.filter(e => e.transactionType === 'personal' && e.paidBy === identity.id);
+  const personalTotal = personalExpenses.reduce((s, e) => s + (e.amount || 0), 0);
+  const converted = convert(total, rate);
+  const from = settings?.fromCurrency || 'JPY';
+  const to = settings?.toCurrency || 'HKD';
+  const balances = calculateBalances(activeExpenses, members);
+  const transfers = simplifyTransfers(balances);
+  const myBalance = balances[identity.id] || 0;
+
+  const catTotals = {};
+  activeExpenses.forEach(e => {
+    catTotals[e.category] = (catTotals[e.category] || 0) + (e.amount || 0);
+  });
+  const topCats = Object.entries(catTotals).sort((a, b) => b[1] - a[1]).slice(0, 4);
+
+  const dayNum = (() => {
+    if (!settings?.startDate) return null;
+    const diff = Math.floor((Date.now() - new Date(settings.startDate).getTime()) / 86400000);
+    return diff >= 0 && diff < (settings.totalDays || 999) ? diff + 1 : null;
+  })();
+
+  return (
+    <div className="px-4 pt-2 pb-4 space-y-4 anim-fade">
+      <div className="text-center">
+        <p className="text-zinc-400 text-sm">{settings?.tripName || '旅程'}{dayNum ? ` · 第${dayNum}日` : ''}</p>
+        <p className="text-4xl font-bold mt-1" style={{ color: c }}>{formatMoney(total, from)}</p>
+        {rate && <p className="text-zinc-400 text-sm mt-1">≈ {formatMoney(converted, to)}</p>}
+      </div>
+
+      {/* 我的狀態 */}
+      <div className="bg-zinc-900 rounded-2xl p-4">
+        <p className="text-zinc-400 text-xs mb-2">我的狀態</p>
+        <div className="flex items-center justify-between">
+          <span className="font-medium">{identity.name}</span>
+          <span className="font-bold" style={{ color: myBalance >= 0 ? '#10B981' : '#EF4444' }}>
+            {myBalance >= 0 ? '可收回 ' : '需付 '}{formatMoney(Math.abs(myBalance), from)}
+          </span>
+        </div>
+        {personalTotal > 0 && (
+          <p className="text-zinc-500 text-xs mt-1">個人消費：{formatMoney(personalTotal, from)}</p>
+        )}
+      </div>
+
+      {/* 轉帳建議 */}
+      {transfers.length > 0 && (
+        <div className="bg-zinc-900 rounded-2xl p-4">
+          <p className="text-zinc-400 text-xs mb-2">結算建議</p>
+          <div className="space-y-2">
+            {transfers.map((t, i) => {
+              const fromM = members.find(m => m.id === t.from);
+              const toM = members.find(m => m.id === t.to);
+              return (
+                <div key={i} className="flex items-center justify-between text-sm">
+                  <span>{fromM?.name || '?'} → {toM?.name || '?'}</span>
+                  <span className="font-bold" style={{ color: c }}>{formatMoney(t.amount, from)}</span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* 分類 */}
+      {topCats.length > 0 && (
+        <div className="bg-zinc-900 rounded-2xl p-4">
+          <p className="text-zinc-400 text-xs mb-2">消費分類</p>
+          <div className="space-y-2">
+            {topCats.map(([catId, amt]) => {
+              const cat = CATEGORIES.find(c => c.id === catId) || CATEGORIES[CATEGORIES.length - 1];
+              const pct = total > 0 ? (amt / total * 100) : 0;
+              return (
+                <div key={catId}>
+                  <div className="flex items-center justify-between text-sm mb-1">
+                    <span>{cat.emoji} {cat.name}</span>
+                    <span className="text-zinc-400">{formatMoney(amt, from)} ({pct.toFixed(0)}%)</span>
+                  </div>
+                  <div className="h-1.5 bg-zinc-800 rounded-full overflow-hidden">
+                    <div className="h-full rounded-full" style={{ width: pct + '%', background: cat.color }} />
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* 匯率 */}
+      {rate && (
+        <div className="bg-zinc-900 rounded-2xl p-4">
+          <div className="flex items-center justify-between text-sm">
+            <span className="text-zinc-400">匯率</span>
+            <span>1 {from} = {rate.rate.toFixed(4)} {to}</span>
+          </div>
+          <p className="text-zinc-600 text-xs mt-1">來源: {rate.source} · {new Date(rate.timestamp).toLocaleString('zh-HK')}</p>
+        </div>
+      )}
+    </div>
+  );
+}
+// ========== Expense List Tab ==========
+function ListTab({ expenses, members, settings, identity, accentColor, onEdit, softDeleteExpense, restoreExpense }) {
+  const c = ensureReadableColor(accentColor);
+  const from = settings?.fromCurrency || 'JPY';
+  const [showDeleted, setShowDeleted] = useState(false);
+  const myRole = members.find(m => m.id === identity.id)?.role || 'viewer';
+  const canEdit = myRole === 'admin' || myRole === 'editor';
+
+  const active = expenses.filter(e => !e.deleted);
+  const deleted = expenses.filter(e => e.deleted);
+  const list = showDeleted ? deleted : active;
+
+  // Group by date
+  const grouped = {};
+  list.forEach(e => {
+    const d = e.date || (e.datetime ? e.datetime.split('T')[0] : '') || '未知日期';
+    if (!grouped[d]) grouped[d] = [];
+    grouped[d].push(e);
+  });
+  const sortedDates = Object.keys(grouped).sort((a, b) => b.localeCompare(a));
+
+  return (
+    <div className="px-4 pt-2 pb-4 anim-fade">
+      <div className="flex items-center justify-between mb-3">
+        <h2 className="font-bold text-lg" style={{ color: c }}>
+          {showDeleted ? '已刪除' : '消費明細'}
+          <span className="text-zinc-500 text-sm font-normal ml-2">{list.length}筆</span>
+        </h2>
+        {deleted.length > 0 && (
+          <button onClick={() => setShowDeleted(!showDeleted)}
+            className="text-xs px-3 py-1 rounded-full bg-zinc-800 text-zinc-400 active:bg-zinc-700">
+            {showDeleted ? '返回' : `回收桶 (${deleted.length})`}
+          </button>
+        )}
+      </div>
+
+      {list.length === 0 && (
+        <div className="text-center text-zinc-500 mt-16">
+          <p className="text-4xl mb-3">{showDeleted ? '🗑️' : '📝'}</p>
+          <p>{showDeleted ? '冇已刪除項目' : '未有消費記錄'}</p>
+        </div>
+      )}
+
+      {sortedDates.map(date => (
+        <div key={date} className="mb-4">
+          <p className="text-zinc-500 text-xs mb-2 sticky top-0 bg-black py-1">{date}</p>
+          <div className="space-y-2">
+            {grouped[date].map(exp => {
+              const cat = CATEGORIES.find(c => c.id === exp.category) || CATEGORIES[CATEGORIES.length - 1];
+              const payer = members.find(m => m.id === exp.paidBy);
+              const isPersonal = exp.transactionType === 'personal';
+              return (
+                <div key={exp.id}
+                  className={`bg-zinc-900 rounded-xl p-3 flex items-center gap-3 transition-colors ${canEdit && !showDeleted ? 'active:bg-zinc-800' : ''} ${exp.deleted ? 'opacity-50' : ''}`}
+                  onClick={() => canEdit && !showDeleted && onEdit(exp)}>
+                  <div className="w-10 h-10 rounded-xl flex items-center justify-center text-lg"
+                    style={{ background: cat.color + '22' }}>{cat.emoji}</div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-1.5">
+                      <span className="font-medium text-sm truncate">{exp.description || cat.name}</span>
+                      {isPersonal && <span className="text-[10px] px-1.5 py-0.5 rounded bg-zinc-800 text-zinc-400">👤個人</span>}
+                      {exp.splitMethod === 'manual' && !isPersonal && <span className="text-[10px] px-1.5 py-0.5 rounded bg-zinc-800 text-zinc-400">✋手動</span>}
+                    </div>
+                    <div className="flex items-center gap-2 mt-0.5">
+                      <span className="text-zinc-500 text-xs">{payer?.name || '?'} 付</span>
+                      {exp.note && <span className="text-zinc-600 text-xs truncate max-w-[100px]">· {exp.note}</span>}
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <p className="font-bold text-sm" style={{ color: c }}>{formatMoney(exp.amount, from)}</p>
+                    {exp.datetime && <p className="text-zinc-600 text-[10px]">{exp.datetime.split('T')[1]?.slice(0,5) || ''}</p>}
+                  </div>
+                  {showDeleted && canEdit && (
+                    <button onClick={e => { e.stopPropagation(); restoreExpense(exp.id); }}
+                      className="ml-1 p-1.5 text-green-500 active:text-green-400">
+                      <IconUn                  {showDeleted && canEdit && (
+                    <button onClick={e => { e.stopPropagation(); restoreExpense(exp.id); }}
+                      className="ml-1 p-1.5 text-green-500 active:text-green-400">
+                      <IconUndo className="w-4 h-4" />
+                    </button>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+// ========== Add / Edit Expense ==========
+function ExpenseForm({ expense, members, settings, identity, accentColor, onSave, onDelete, onClose }) {
+  const c = ensureReadableColor(accentColor);
+  const from = settings?.fromCurrency || 'JPY';
+  const isEdit = !!expense;
+
+  const now = new Date();
+  const localIso = new Date(now.getTime() - now.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+
+  const [amount, setAmount] = useState(expense ? String(expense.amount) : '');
+  const [description, setDescription] = useState(expense?.description || '');
+  const [category, setCategory] = useState(expense?.category || 'food');
+  const [paidBy, setPaidBy] = useState(expense?.paidBy || identity.id);
+  const [payment, setPayment] = useState(expense?.paymentMethod || 'cash');
+  const [transactionType, setTransactionType] = useState(expense?.transactionType || 'shared');
+  const [splitMethod, setSplitMethod] = useState(expense?.splitMethod || 'even');
+  const [splitAmong, setSplitAmong] = useState(expense?.splitAmong || members.map(m => m.id));
+  const [splitAmounts, setSplitAmounts] = useState(expense?.splitAmounts || {});
+  const [note, setNote] = useState(expense?.note || '');
+  const [datetime, setDatetime] = useState(expense?.datetime || localIso);
+  const [date, setDate] = useState(expense?.date || now.toISOString().split('T')[0]);
+
+  // 當 datetime 改變時同步 date
+  useEffect(() => {
+    if (datetime) {
+      const d = datetime.split('T')[0];
+      if (d) setDate(d);
+    }
+  }, [datetime]);
+
+  const toggleSplitMember = (mid) => {
+    setSplitAmong(prev => prev.includes(mid) ? prev.filter(x => x !== mid) : [...prev, mid]);
+  };
+
+  const selectAllMembers = () => setSplitAmong(members.map(m => m.id));
+  const selectNone = () => setSplitAmong([]);
+
+  // 手動分帳金額更新
+  const updateSplitAmount = (mid, val) => {
+    setSplitAmounts(prev => ({ ...prev, [mid]: parseFloat(val) || 0 }));
+  };
+
+  // 手動分帳：自動分配剩餘
+  const manualTotal = splitAmong.reduce((s, mid) => s + (splitAmounts[mid] || 0), 0);
+  const manualRemaining = (parseFloat(amount) || 0) - manualTotal;
+
+  // 平均分帳每人金額
+  const evenPerPerson = splitAmong.length > 0 ? (parseFloat(amount) || 0) / splitAmong.length : 0;
+
+  const handleSave = () => {
+    const amt = parseFloat(amount);
+    if (!amt || amt <= 0) return;
+    const data = {
+      amount: amt,
+      description: description.trim(),
+      category,
+      paidBy,
+      paymentMethod: payment,
+      transactionType,
+      splitMethod: transactionType === 'personal' ? 'even' : splitMethod,
+      splitAmong: transactionType === 'personal' ? [paidBy] : splitAmong,
+      splitAmounts: (transactionType !== 'personal' && splitMethod === 'manual') ? splitAmounts : {},
+      note: note.trim(),
+      datetime,
+      date,
+    };
+    onSave(data);
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black/80 z-50 flex items-end justify-center" onClick={onClose}>
+      <div className="bg-zinc-900 w-full max-w-lg rounded-t-3xl max-h-[92vh] overflow-y-auto anim-slide-up"
+        onClick={e => e.stopPropagation()}>
+        <div className="sticky top-0 bg-zinc-900 z-10 px-5 pt-5 pb-3 flex items-center justify-between border-b border-zinc-800">
+          <button onClick={onClose} className="text-zinc-400 active:text-white"><IconX className="w-5 h-5" /></button>
+          <h2 className="font-bold">{isEdit ? '編輯消費' : '新增消費'}</h2>
+          <button onClick={handleSave} className="font-bold" style={{ color: c }}>儲存</button>
+        </div>
+
+        <div className="p-5 space-y-5">
+          {/* 金額 */}
+          <div>
+            <label className="text-zinc-400 text-xs mb-1 block">金額 ({getCurrencySymbol(from)})</label>
+            <input type="number" inputMode="decimal" value={amount} onChange={e => setAmount(e.target.value)}
+              placeholder="0" autoFocus
+              className="w-full bg-zinc-800 rounded-xl px-4 py-3 text-white text-2xl font-bold outline-none focus:ring-1 focus:ring-orange-500" />
+          </div>
+
+          {/* 描述 */}
+          <div>
+            <label className="text-zinc-400 text-xs mb-1 block">描述</label>
+            <input value={description} onChange={e => setDescription(e.target.value)} placeholder="食咗乜 / 買咗乜"
+              className="w-full bg-zinc-800 rounded-xl px-4 py-3 text-white outline-none focus:ring-1 focus:ring-orange-500" />
+          </div>
+
+          {/* 日期時間 (Round 2) */}
+          <div>
+            <label className="text-zinc-400 text-xs mb-1 block">日期時間</label>
+            <input type="datetime-local" value={datetime} onChange={e => setDatetime(e.target.value)}
+              className="w-full bg-zinc-800 rounded-xl px-4 py-3 text-white outline-none focus:ring-1 focus:ring-orange-500" />
+          </div>
+
+          {/* 分類 */}
+          <div>
+            <label className="text-zinc-400 text-xs mb-1 block">分類</label>
+            <div className="grid grid-cols-4 gap-2">
+              {CATEGORIES.map(cat => (
+                <button key={cat.id} onClick={() => setCategory(cat.id)}
+                  className={`flex flex-col items-center gap-1 p-2 rounded-xl transition-colors ${category === cat.id ? 'ring-2' : 'bg-zinc-800'}`}
+                  style={category === cat.id ? { background: cat.color + '22', ringColor: cat.color } : {}}>
+                  <span className="text-lg">{cat.emoji}</span>
+                  <span className="text-[10px] text-zinc-300">{cat.name}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* 付款人 */}
+          <div>
+            <label className="text-zinc-400 text-xs mb-1 block">邊個付款</label>
+            <div className="flex flex-wrap gap-2">
+              {members.map(m => (
+                <button key={m.id} onClick={() => setPaidBy(m.id)}
+                  className={`px-3 py-2 rounded-xl text-sm font-medium transition-colors ${paidBy === m.id ? 'text-white' : 'bg-zinc-800 text-zinc-400'}`}
+                  style={paidBy === m.id ? { background: m.color || c } : {}}>
+                  {m.name}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* 付款方式 */}
+          <div>
+            <label className="text-zinc-400 text-xs mb-1 block">付款方式</label>
+            <div className="flex flex-wrap gap-2">
+              {PAYMENT_METHODS.map(pm => (
+                <button key={pm.id} onClick={() => setPayment(pm.id)}
+                  className={`px-3 py-2 rounded-xl text-sm transition-colors ${payment === pm.id ? 'text-white' : 'bg-zinc-800 text-zinc-400'}`}
+                  style={payment === pm.id ? { background: c } : {}}>
+                  {pm.name}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* 交易類型 (Round 2) */}
+          <div>
+            <label className="text-zinc-400 text-xs mb-1 block">交易類型</label>
+            <div className="flex gap-2">
+              {TRANSACTION_TYPES.map(tt => (
+                <button key={tt.id} onClick={() => setTransactionType(tt.id)}
+                  className={`flex-1 flex items-center justify-center gap-2 px-3 py-3 rounded-xl text-sm font-medium transition-colors ${transactionType === tt.id ? 'text-white' : 'bg-zinc-800 text-zinc-400'}`}
+                  style={transactionType === tt.id ? { background: c } : {}}>
+                  <span>{tt.emoji}</span>
+                  <span>{tt.name}</span>
+                </button>
+              ))}
+            </div>
+            <p className="text-zinc-600 text-xs mt-1">
+              {TRANSACTION_TYPES.find(t => t.id === transactionType)?.desc}
+            </p>
+          </div>
+
+          {/* 分帳設定 (只有 shared 先顯示) */}
+          {transactionType === 'shared' && (
+            <>
+              {/* 分帳方式 (Round 2) */}
+              <div>
+                <label className="text-zinc-400 text-xs mb-1 block">分帳方式</label>
+                <div className="flex gap-2">
+                  {SPLIT_METHODS.map(sm => (
+                    <button key={sm.id} onClick={() => setSplitMethod(sm.id)}
+                      className={`flex-1 px-3 py-2 rounded-xl text-sm font-medium transition-colors ${splitMethod === sm.id ? 'text-white' : 'bg-zinc-800 text-zinc-400'}`}
+                      style={splitMethod === sm.id ? { background: c } : {}}>
+                      {sm.name}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* 分擔人 */}
+              <div>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="text-zinc-400 text-xs">邊啲人分</label>
+                  <div className="flex gap-2">
+                    <button onClick={selectAllMembers} className="text-xs px-2 py-0.5 rounded bg-zinc-800 text-zinc-400 active:bg-zinc-700">全選</button>
+                    <button onClick={selectNone} className="text-xs px-2 py-0.5 rounded bg-zinc-800 text-zinc-400 active:bg-zinc-700">清除</button>
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  {members.map(m => {
+                    const selected = splitAmong.includes(m.id);
+                    return (
+                      <div key={m.id} className={`flex items-center gap-3 p-2 rounded-xl transition-colors ${selected ? 'bg-zinc-800' : 'bg-zinc-900'}`}>
+                        <button onClick={() => toggleSplitMember(m.id)}
+                          className={`w-6 h-6 rounded-md flex items-center justify-center border-2 transition-colors ${selected ? 'border-transparent' : 'border-zinc-600'}`}
+                          style={selected ? { background: m.color || c } : {}}>
+                          {selected && <IconCheck className="w-3.5 h-3.5 text-white" />}
+                        </button>
+                        <span className="flex-1 text-sm font-medium">{m.name}</span>
+                        {splitMethod === 'even' && selected && (
+                          <span className="text-zinc-400 text-xs">{formatMoney(evenPerPerson, from)}</span>
+                        )}
+                        {splitMethod === 'manual' && selected && (
+                          <input type="number" inputMode="decimal"
+                            value={splitAmounts[m.id] || ''}
+                            onChange={e => updateSplitAmount(m.id, e.target.value)}
+                            placeholder="0"
+                            className="w-24 bg-zinc-700 rounded-lg px-2 py-1 text-white text-sm text-right outline-none focus:ring-1 focus:ring-orange-500" />
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+                {splitMethod === 'manual' && (
+                  <div className={`text-xs mt-2 ${Math.abs(manualRemaining) < 0.01 ? 'text-green-500' : 'text-red-400'}`}>
+                    {Math.abs(manualRemaining) < 0.01 ? '✓ 金額吻合' : `剩餘 ${formatMoney(manualRemaining, from)} 未分配`}
+                  </div>
+                )}
+              </div>
+            </>
+          )}
+
+          {/* 備註 (Round 2) */}
+          <div>
+            <label className="text-zinc-400 text-xs mb-1 block">備註</label>
+            <textarea value={note} onChange={e => setNote(e.target.value)} placeholder="備註（可選）" rows={2}
+              className="w-full bg-zinc-800 rounded-xl px-4 py-3 text-white text-sm outline-none focus:ring-1 focus:ring-orange-500 resize-none" />
+          </div>
+
+          {/* 刪除按鈕 */}
+          {isEdit && onDelete && (
+            <button onClick={onDelete}
+              className="w-full py-3 rounded-xl text-red-500 bg-red-500/10 font-medium active:bg-red-500/20">
+              刪除此筆消費
+            </button>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+// ========== Camera Tab (placeholder for OCR - Round 3) ==========
+function CameraTab({ accentColor, members, settings, identity, onAddExpense }) {
+  const c = ensureReadableColor(accentColor);
+  return (
+    <div className="px-4 pt-2 pb-4 anim-fade">
+      <div className="text-center mt-16">
+        <div className="w-20 h-20 rounded-full mx-auto flex items-center justify-center mb-4" style={{ background: c + '22' }}>
+          <IconCamera className="w-10 h-10" style={{ color: c }} />
+        </div>
+        <h2 className="font-bold text-lg mb-2">收據掃描</h2>
+        <p className="text-zinc-400 text-sm">Round 3 會加入 OCR 功能</p>
+        <p className="text-zinc-500 text-xs mt-1">影相自動辨識金額同分類</p>
+      </div>
+    </div>
+  );
+}
+
+// ========== Chart Tab ==========
+function ChartTab({ expenses, members, settings, rate, accentColor }) {
+  const c = ensureReadableColor(accentColor);
+  const from = settings?.fromCurrency || 'JPY';
+  const active = expenses.filter(e => !e.deleted);
+  const shared = active.filter(e => e.transactionType !== 'personal');
+  const personal = active.filter(e => e.transactionType === 'personal');
+
+  // 分類統計
+  const catMap = {};
+  active.forEach(e => { catMap[e.category] = (catMap[e.category] || 0) + (e.amount || 0); });
+  const catArr = Object.entries(catMap).sort((a, b) => b[1] - a[1]);
+  const totalAmt = active.reduce((s, e) => s + (e.amount || 0), 0);
+
+  // 每人付款統計
+  const payerMap = {};
+  active.forEach(e => { payerMap[e.paidBy] = (payerMap[e.paidBy] || 0) + (e.amount || 0); });
+  const payerArr = Object.entries(payerMap).sort((a, b) => b[1] - a[1]);
+  const maxPayer = payerArr.length > 0 ? payerArr[0][1] : 1;
+
+  // 每日統計
+  const dayMap = {};
+  active.forEach(e => {
+    const d = e.date || '未知';
+    dayMap[d] = (dayMap[d] || 0) + (e.amount || 0);
+  });
+  const dayArr = Object.entries(dayMap).sort((a, b) => a[0].localeCompare(b[0]));
+  const maxDay = dayArr.length > 0 ? Math.max(...dayArr.map(d => d[1])) : 1;
+
+  // 付款方式統計
+  const pmMap = {};
+  active.forEach(e => { const pm = e.paymentMethod || 'other'; pmMap[pm] = (pmMap[pm] || 0) + (e.amount || 0); });
+  const pmArr = Object.entries(pmMap).sort((a, b) => b[1] - a[1]);
+
+  return (
+    <div className="px-4 pt-2 pb-4 space-y-4 anim-fade">
+      <h2 className="font-bold text-lg" style={{ color: c }}>統計</h2>
+
+      {/* 總覽 */}
+      <div className="grid grid-cols-3 gap-2">
+        <div className="bg-zinc-900 rounded-xl p-3 text-center">
+          <p className="text-zinc-400 text-xs">總消費</p>
+          <p className="font-bold mt-1" style={{ color: c }}>{formatMoney(totalAmt, from, true)}</p>
+        </div>
+        <div className="bg-zinc-900 rounded-xl p-3 text-center">
+          <p className="text-zinc-400 text-xs">共同</p>
+          <p className="font-bold mt-1 text-white">{shared.length}筆</p>
+        </div>
+        <div className="bg-zinc-900 rounded-xl p-3 text-center">
+          <p className="text-zinc-400 text-xs">個人</p>
+          <p className="font-bold mt-1 text-white">{personal.length}筆</p>
+        </div>
+      </div>
+
+      {/* 分類 */}
+      {catArr.length > 0 && (
+        <div className="bg-zinc-900 rounded-2xl p-4">
+          <p className="text-zinc-400 text-xs mb-3">分類分佈</p>
+          <div className="space-y-3">
+            {catArr.map(([catId, amt]) => {
+              const cat = CATEGORIES.find(c => c.id === catId) || CATEGORIES[CATEGORIES.length - 1];
+              const pct = totalAmt > 0 ? (amt / totalAmt * 100) : 0;
+              return (
+                <div key={catId}>
+                  <div className="flex items-center justify-between text-sm mb-1">
+                    <span>{cat.emoji} {cat.name}</span>
+                    <span className="text-zinc-300">{formatMoney(amt, from)} <span className="text-zinc-500">({pct.toFixed(0)}%)</span></span>
+                  </div>
+                  <div className="h-2 bg-zinc-800 rounded-full overflow-hidden">
+                    <div className="h-full rounded-full transition-all" style={{ width: pct + '%', background: cat.color }} />
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* 每人付款 */}
+      {payerArr.length > 0 && (
+        <div className="bg-zinc-900 rounded-2xl p-4">
+          <p className="text-zinc-400 text-xs mb-3">每人付款</p>
+          <div className="space-y-3">
+            {payerArr.map(([mid, amt]) => {
+              const m = members.find(x => x.id === mid);
+              const pct = maxPayer > 0 ? (amt / maxPayer * 100) : 0;
+              return (
+                <div key={mid}>
+                  <div className="flex items-center justify-between text-sm mb-1">
+                    <span>{m?.name || '?'}</span>
+                    <span className="font-medium">{formatMoney(amt, from)}</span>
+                  </div>
+                  <div className="h-2 bg-zinc-800 rounded-full overflow-hidden">
+                    <div className="h-full rounded-full transition-all" style={{ width: pct + '%', background: m?.color || c }} />
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* 每日消費 */}
+      {dayArr.length > 0 && (
+        <div className="bg-zinc-900 rounded-2xl p-4">
+          <p className="text-zinc-400 text-xs mb-3">每日消費</p>
+          <div className="flex items-end gap-1 h-32">
+            {dayArr.map(([d, amt]) => {
+              const pct = maxDay > 0 ? (amt / maxDay * 100) : 0;
+              return (
+                <div key={d} className="flex-1 flex flex-col items-center justify-end h-full">
+                  <div className="w-full rounded-t" style={{ height: Math.max(pct, 4) + '%', background: c, minHeight: '2px' }} />
+                  <p className="text-[8px] text-zinc-500 mt-1 truncate w-full text-center">{d.slice(5)}</p>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* 付款方式 */}
+      {pmArr.length > 0 && (
+        <div className="bg-zinc-900 rounded-2xl p-4">
+          <p className="text-zinc-400 text-xs mb-3">付款方式</p>
+          <div className="space-y-2">
+            {pmArr.map(([pmId, amt]) => {
+              const pm = PAYMENT_METHODS.find(p => p.id === pmId);
+              return (
+                <div key={pmId} className="flex items-center justify-between text-sm">
+                  <span>{pm?.name || pmId}</span>
+                  <span className="text-zinc-300">{formatMoney(amt, from)}</span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ========== Settings Tab ==========
+function SettingsTab({ settings, members, identity, accentColor, writeTripMetaField, updateMember, removeMember, addMember, tripId }) {
+  const c = ensureReadableColor(accentColor);
+  const myRole = members.find(m => m.id === identity.id)?.role || 'viewer';
+  const isAdmin = myRole === 'admin';
+  const [newMemberName, setNewMemberName] = useState('');
+  const [toast, setToast] = useState('');
+  const [showColorPicker, setShowColorPicker] = useState(null);
+  const [customColor, setCustomColor] = useState('#FF8C00');
+
+  const handleAddMember = async () => {
+    const name = newMemberName.trim();
+    if (!name) return;
+    await addMember({ name, color: PRESET_COLORS[members.length % PRESET_COLORS.length] });
+    setNewMemberName('');
+  };
+
+  const handleShare = async () => {
+    const res = await shareTrip(tripId, settings?.tripName);
+    if (res.ok) setToast(res.method === 'clipboard' ? '已複製連結' : '已分享');
+  };
+
+  const handleLeave = () => {
+    clearIdentity(tripId);
+    window.location.reload();
+  };
+
+  const handleBackToList = () => {
+    setRoute({ kind: 'list' });
+    window.location.reload();
+  };
+
+  return (
+    <div className="px-4 pt-2 pb-4 space-y-4 anim-fade">
+      {toast && <Toast message={toast} onDone={() => setToast('')} />}
+      <h2 className="font-bold text-lg" style={{ color: c }}>設定</h2>
+
+      {/* 旅程資料 */}
+      <div className="bg-zinc-900 rounded-2xl p-4 space-y-3">
+        <p className="text-zinc-400 text-xs">旅程資料</p>
+        <div>
+          <label className="text-zinc-500 text-xs">名稱</label>
+          <input value={settings?.tripName || ''} onChange={e => writeTripMetaField('tripName', e.target.value)}
+            className="w-full bg-zinc-800 rounded-xl px-3 py-2 text-white text-sm outline-none mt-1" />
+        </div>
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label className="text-zinc-500 text-xs">開始日期</label>
+            <input type="date" value={settings?.startDate || ''} onChange={e => writeTripMetaField('startDate', e.target.value)}
+              className="w-full bg-zinc-800 rounded-xl px-3 py-2 text-white text-sm outline-none mt-1" />
+          </div>
+          <div>
+            <label className="text-zinc-500 text-xs">天數</label>
+            <input type="number" value={settings?.totalDays || ''} onChange={e => writeTripMetaField('totalDays', parseInt(e.target.value) || 0)}
+              className="w-full bg-zinc-800 rounded-xl px-3 py-2 text-white text-sm outline-none mt-1" />
+          </div>
+        </div>
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label className="text-zinc-500 text-xs">消費幣種</label>
+            <select value={settings?.fromCurrency || 'JPY'} onChange={e => writeTripMetaField('fromCurrency', e.target.value)}
+              className="w-full bg-zinc-800 rounded-xl px-3 py-2 text-white text-sm outline-none mt-1 appearance-none">
+              {CURRENCIES.map(cur => <option key={cur.code} value={cur.code}>{cur.flag} {cur.code}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="text-zinc-500 text-xs">換算幣種</label>
+            <select value={settings?.toCurrency || 'HKD'} onChange={e => writeTripMetaField('toCurrency', e.target.value)}
+              className="w-full bg-zinc-800 rounded-xl px-3 py-2 text-white text-sm outline-none mt-1 appearance-none">
+              {CURRENCIES.map(cur => <option key={cur.code} value={cur.code}>{cur.flag} {cur.code}</option>)}
+            </select>
+          </div>
+        </div>
+      </div>
+
+      {/* 旅伴管理 */}
+      <div className="bg-zinc-900 rounded-2xl p-4 space-y-3">
+        <p className="text-zinc-400 text-xs">旅伴 ({members.length}人)</p>
+        <div className="space-y-2">
+          {members.map(m => (
+            <div key={m.id} className="flex items-center gap-3 p-2 rounded-xl bg-zinc-800">
+              <div className="w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold cursor-pointer"
+                style={{ background: m.color || '#FF8C00' }}
+                onClick={() => { setShowColorPicker(showColorPicker === m.id ? null : m.id); setCustomColor(m.color || '#FF8C00'); }}>
+                {m.name?.[0]}
+              </div>
+              <div className="flex-1 min-w-0">
+                <span className="text-sm font-medium">{m.name}</span>
+                {m.id === identity.id && <span className="text-xs text-zinc-500 ml-1">(你)</span>}
+              </div>
+              {isAdmin && (
+                <select value={m.role || 'editor'} onChange={e => updateMember(m.id, { role: e.target.value })}
+                  className="bg-zinc-700 text-xs rounded-lg px-2 py-1 text-white outline-none appearance-none">
+                  {ROLE_ORDER.map(r => <option key={r} value={r}>{ROLES[r].name}</option>)}
+                </select>
+              )}
+              {!isAdmin && <span className="text-xs text-zinc-500">{ROLES[m.role]?.name || m.role}</span>}
+              {isAdmin && m.id !== identity.id && (
+                <button onClick={() => removeMember(m.id)} className="text-red-500 p-1 active:text-red-400">
+                  <Icon              {isAdmin && m.id !== identity.id && (
+                <button onClick={() => removeMember(m.id)} className="text-red-500 p-1 active:text-red-400">
+                  <IconTrash className="w-4 h-4" />
+                </button>
+              )}
+              {showColorPicker === m.id && (
+                <div className="absolute right-4 mt-32 bg-zinc-700 rounded-xl p-3 shadow-xl z-20">
+                  <div className="flex flex-wrap gap-2 mb-2">
+                    {PRESET_COLORS.map(pc => (
+                      <button key={pc} onClick={() => { updateMember(m.id, { color: pc }); setShowColorPicker(null); }}
+                        className="w-7 h-7 rounded-full border-2 border-transparent hover:border-white"
+                        style={{ background: pc }} />
+                    ))}
+                  </div>
+                  <div className="flex gap-2 items-center">
+                    <input type="color" value={customColor} onChange={e => setCustomColor(e.target.value)}
+                      className="w-8 h-8 rounded cursor-pointer bg-transparent border-0" />
+                    <button onClick={() => { updateMember(m.id, { color: customColor }); setShowColorPicker(null); }}
+                      className="text-xs px-2 py-1 rounded bg-zinc-600 text-white">套用</button>
+                  </div>
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+        {isAdmin && (
+          <div className="flex gap-2">
+            <input value={newMemberName} onChange={e => setNewMemberName(e.target.value)} placeholder="新旅伴名字"
+              className="flex-1 bg-zinc-800 rounded-xl px-3 py-2 text-white text-sm outline-none"
+              onKeyDown={e => e.key === 'Enter' && handleAddMember()} />
+            <button onClick={handleAddMember} className="px-4 py-2 rounded-xl text-sm font-medium text-white" style={{ background: c }}>加入</button>
+          </div>
+        )}
+      </div>
+
+      {/* 分享 */}
+      <div className="bg-zinc-900 rounded-2xl p-4 space-y-3">
+        <p className="text-zinc-400 text-xs">分享</p>
+        <button onClick={handleShare}
+          className="w-full flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-medium text-white" style={{ background: c }}>
+          <IconShare className="w-4 h-4" /> 分享旅程連結
+        </button>
+      </div>
+
+      {/* 連線狀態 */}
+      <div className="bg-zinc-900 rounded-2xl p-4">
+        <div className="flex items-center gap-2 text-sm">
+          {navigator.onLine ? <IconWifi className="w-4 h-4 text-green-500" /> : <IconWifiOff className="w-4 h-4 text-red-500" />}
+          <span className="text-zinc-400">{navigator.onLine ? '已連線' : '離線模式'}</span>
+        </div>
+      </div>
+
+      {/* 操作 */}
+      <div className="space-y-2">
+        <button onClick={handleBackToList}
+          className="w-full py-3 rounded-xl text-sm bg-zinc-900 text-zinc-300 active:bg-zinc-800">
+          ← 返回旅程列表
+        </button>
+        <button onClick={handleLeave}
+          className="w-full py-3 rounded-xl text-sm bg-red-500/10 text-red-500 active:bg-red-500/20">
+          登出此旅程
+        </button>
+      </div>
+    </div>
+  );
+}
+// ========== Error Boundary ==========
+class ErrorBoundary extends React.Component {
+  constructor(props) { super(props); this.state = { error: null }; }
+  static getDerivedStateFromError(error) { return { error }; }
+  render() {
+    if (this.state.error) {
+      return (
+        <div className="min-h-screen bg-black text-white flex flex-col items-center justify-center p-6">
+          <p className="text-4xl mb-4">😵</p>
+          <p className="font-bold text-lg mb-2">出錯了</p>
+          <p className="text-zinc-400 text-sm text-center mb-4">{this.state.error?.message || '未知錯誤'}</p>
+          <button onClick={() => window.location.reload()}
+            className="bg-orange-600 text-white px-6 py-2 rounded-xl">重新載入</button>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
+// ========== Main Trip App ==========
+function TripApp({ tripId }) {
+  const store = useFirebase(tripId);
+  const { settings, expenses, members, ready, online, addExpense, updateExpense, softDeleteExpense, restoreExpense, hardDeleteExpense, addMember, updateMember, removeMember, writeTripMetaField } = store;
+  const [tab, setTab] = useState('home');
+  const [editingExp, setEditingExp] = useState(null);
+  const [showAddForm, setShowAddForm] = useState(false);
+  const [rate, setRate] = useState(null);
+  const [toast, setToast] = useState('');
+
+  const accentColor = settings?.accentColor || '#FF8C00';
+
+  // Fetch exchange rate
+  useEffect(() => {
+    if (!settings) return;
+    const from = settings.fromCurrency || 'JPY';
+    const to = settings.toCurrency || 'HKD';
+    if (from === to) { setRate({ rate: 1, timestamp: Date.now(), source: 'same' }); return; }
+    fetchExchangeRate(from, to).then(r => { if (r) setRate(r); });
+  }, [settings?.fromCurrency, settings?.toCurrency]);
+
+  if (!ready) {
+    return (
+      <div className="min-h-screen bg-black text-white flex items-center justify-center">
+        <div className="anim-spin"><IconLoader className="w-8 h-8 text-orange-500" /></div>
+      </div>
+    );
+  }
+
+  const handleSaveExpense = async (data) => {
+    if (editingExp) {
+      await updateExpense(editingExp.id, data);
+      setEditingExp(null);
+    } else {
+      await addExpense(data);
+      setShowAddForm(false);
+    }
+    setToast('已儲存');
+  };
+
+  const handleDeleteExpense = async () => {
+    if (editingExp) {
+      await softDeleteExpense(editingExp.id);
+      setEditingExp(null);
+      setToast('已刪除');
+    }
+  };
+
+  return (
+    <IdentityGate tripId={tripId} members={members} addMember={addMember}>
+      {({ identity }) => {
+        const myRole = members.find(m => m.id === identity.id)?.role || 'viewer';
+        const canEdit = myRole === 'admin' || myRole === 'editor';
+
+        return (
+          <div className="min-h-screen bg-black text-white safe-top pb-20">
+            {toast && <Toast message={toast} onDone={() => setToast('')} />}
+
+            {/* Header */}
+            <div className="fixed top-0 left-0 right-0 z-30 bg-black/90 backdrop-blur">
+              <div className="safe-top" />
+              <div className="flex items-center justify-between px-4 h-11 -mt-4">
+                <div className="flex items-center gap-2">
+                  {!online && <IconWifiOff className="w-4 h-4 text-red-500" />}
+                  <span className="text-sm font-medium text-zinc-300 truncate max-w-[200px]">{settings?.tripName || '旅程'}</span>
+                </div>
+                <div className="flex items-center gap-1">
+                  <span className="text-xs px-2 py-0.5 rounded-full bg-zinc-800 text-zinc-400">{ROLES[myRole]?.name || myRole}</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Content */}
+            <div className="pt-2">
+              {tab === 'home' && <HomeTab settings={settings} expenses={expenses} members={members} rate={rate} identity={identity} accentColor={accentColor} />}
+              {tab === 'list' && <ListTab expenses={expenses} members={members} settings={settings} identity={identity} accentColor={accentColor} onEdit={exp => setEditingExp(exp)} softDeleteExpense={softDeleteExpense} restoreExpense={restoreExpense} />}
+              {tab === 'camera' && <CameraTab accentColor={accentColor} members={members} settings={settings} identity={identity} onAddExpense={addExpense} />}
+              {tab === 'chart' && <ChartTab expenses={expenses} members={members} settings={settings} rate={rate} accentColor={accentColor} />}
+              {tab === 'settings' && <SettingsTab settings={settings} members={members} identity={identity} accentColor={accentColor} writeTripMetaField={writeTripMetaField} updateMember={updateMember} removeMember={removeMember} addMember={addMember} tripId={tripId} />}
+            </div>
+
+            {/* FAB - Add expense */}
+            {canEdit && (tab === 'home' || tab === 'list') && (
+              <button onClick={() => setShowAddForm(true)}
+                className="fixed right-5 bottom-20 w-14 h-14 rounded-full flex items-center justify-center shadow-lg z-30 active:scale-95 transition-transform"
+                style={{ background: ensureReadableColor(accentColor) }}>
+                <IconPlus className="w-6 h-6 text-white" />
+              </button>
+            )}
+
+            {/* Tab Bar */}
+            <TabBar tab={tab} setTab={setTab} accentColor={accentColor} />
+
+            {/* Add Form */}
+            {showAddForm && (
+              <ExpenseForm members={members} settings={settings} identity={identity} accentColor={accentColor}
+                onSave={handleSaveExpense} onClose={() => setShowAddForm(false)} />
+            )}
+
+            {/* Edit Form */}
+            {editingExp && (
+              <ExpenseForm expense={editingExp} members={members} settings={settings} identity={identity} accentColor={accentColor}
+                onSave={handleSaveExpense} onDelete={handleDeleteExpense} onClose={() => setEditingExp(null)} />
+            )}
+          </div>
+        );
+      }}
+    </IdentityGate>
+  );
+}
+
+// ========== Root App with routing ==========
+function App() {
+  const [route, setRouteState] = useState(parseRoute);
+
+  useEffect(() => {
+    const onHash = () => setRouteState(parseRoute());
+    window.addEventListener('hashchange', onHash);
+    return () => window.removeEventListener('hashchange', onHash);
+  }, []);
+
+  // Legacy: if no hash, check for "default" trip
+  useEffect(() => {
+    if (route.kind === 'list') {
+      const legacy = localStorage.getItem('identity_default');
+      if (legacy) {
+        // migrate: redirect to default trip
+        setRoute({ kind: 'trip', tripId: 'default' });
+      }
+    }
+  }, []);
+
+  if (route.kind === 'trip') {
+    return <TripApp tripId={route.tripId} />;
+  }
+  return <TripListPage />;
+}
+
+// ========== Mount ==========
+ReactDOM.createRoot(document.getElementById('root')).render(
+  <ErrorBoundary>
+    <App />
+  </ErrorBoundary>
+);
+
 </script>
 </body>
 </html>
